@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "message": "计算完成",
+  "data": {
+    "ahr999": 0.4765,
+    "currentPrice": 83552,
+    "dcaCost": 110220.89,
+    "exponentialValue": 132929.25,
+    "coinAge": 6166,
+    "timestamp": "2025-11-21T13:12:08.459Z",
+    "date": "2025-11-21"
+  }
+}
