@@ -355,10 +355,11 @@
         async function fetchData() {
             try {
                 const response = await fetch('ahr999-data.json');
-                const result = await response.json();
+                const data = await response.json();
                 
-                if (result.success && result.data) {
-                    displayData(result.data);
+                // 验证数据是否包含必要字段
+                if (data && typeof data.ahr999 === 'number') {
+                    displayData(data);
                 } else {
                     throw new Error('Invalid data format');
                 }
