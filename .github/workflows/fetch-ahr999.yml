@@ -19,7 +19,7 @@ jobs:
 
       - name: Fetch AHR999 data
         run: |
-          curl -s https://ahr999.btchao.com/api/ahr999/calculate > public/ahr999-data.json
+          curl -s https://ahr999.btchao.com/api/ahr999/latest > public/ahr999-data.json
           echo "Data fetched successfully"
           cat public/ahr999-data.json
 

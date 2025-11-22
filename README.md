@@ -12,7 +12,7 @@
 
 ## 数据来源
 
-数据来自 API: `https://ahr999.btchao.com/api/ahr999/calculate`
+数据来自 API: `https://ahr999.btchao.com/api/ahr999/latest`
 
 返回的数据包括：
 - `ahr999`: AHR999 指数值
@@ -66,7 +66,7 @@ cd <your-repo-name>
 
 2. 手动获取数据（可选）：
 ```bash
-curl -s https://ahr999.btchao.com/api/ahr999/calculate > public/ahr999-data.json
+curl -s https://ahr999.btchao.com/api/ahr999/latest > public/ahr999-data.json
 ```
 
 3. 启动本地服务器：
