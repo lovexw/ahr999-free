@@ -12,14 +12,18 @@
 
 ## 数据来源
 
-数据来自 API: `https://ahr999.btchao.com/api/ahr999/latest`
+数据来自 API: `https://9992100.xyz/api/ahr999`
 
-返回的数据包括：
+返回的数据包括（以实际接口为准）：
 - `ahr999`: AHR999 指数值
-- `currentPrice`: 比特币当前价格
-- `dcaCost`: 200日定投成本
-- `exponentialValue`: 指数拟合价格
-- `coinAge`: 比特币币龄（天数）
+- `price_usd`: 比特币当前价格（USD）
+- `gma200_usd`: 200 日定投成本（GMA200）
+- `index_growth_valuation_usd`: 指数增长估值（USD）
+- `coin_age_days`: 比特币币龄（天数）
+- `updated_at_unix`: 数据更新时间（Unix 秒）
+- `series_7d`: 近 7 天 AHR999 序列
+- `fear_greed`: 恐惧 & 贪婪指数信息
+- `btc_dominance_pct`: BTC 市占率（%）
 
 ## 部署到 Cloudflare Pages
 
@@ -66,7 +70,7 @@ cd <your-repo-name>
 
 2. 手动获取数据（可选）：
 ```bash
-curl -s https://ahr999.btchao.com/api/ahr999/latest > public/ahr999-data.json
+curl -s https://9992100.xyz/api/ahr999 > public/ahr999-data.json
 ```
 
 3. 启动本地服务器：

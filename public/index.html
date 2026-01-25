@@ -217,6 +217,16 @@
             border-top: 1px solid #E0E0E0;
         }
 
+        .fear-greed-badge {
+            display: inline-block;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 1.05em;
+            line-height: 1.4;
+            color: #ffffff;
+        }
+
         .loading {
             text-align: center;
             padding: 60px 20px;
@@ -243,6 +253,7 @@
             .data-grid {
                 grid-template-columns: 1fr;
             }
+
         }
     </style>
 </head>
@@ -271,20 +282,28 @@
 
                 <div class="data-grid">
                     <div class="data-item">
-                        <div class="label">当前价格</div>
+                        <div class="label">当前价格（USD）</div>
                         <div class="value" id="currentPrice">--</div>
                     </div>
                     <div class="data-item">
-                        <div class="label">定投成本</div>
+                        <div class="label">200 日定投成本（GMA200）</div>
                         <div class="value" id="dcaCost">--</div>
                     </div>
                     <div class="data-item">
-                        <div class="label">指数估值</div>
+                        <div class="label">指数增长估值（USD）</div>
                         <div class="value" id="exponentialValue">--</div>
                     </div>
                     <div class="data-item">
                         <div class="label">币龄（天）</div>
                         <div class="value" id="coinAge">--</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="label">恐惧 &amp; 贪婪指数</div>
+                        <div class="value" id="fearGreed">--</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="label">BTC 市占率</div>
+                        <div class="value" id="btcDominance">--</div>
                     </div>
                 </div>
 
@@ -326,7 +345,7 @@
                     <p>
                         AHR999 指数的计算公式为：<strong>AHR999 = (比特币价格 / 200日定投成本) × (比特币价格 / 指数增长估值)</strong>
                     </p>
-                    
+
                     <h3 style="margin-top: 30px;">🎯 指标构成</h3>
                     <ul>
                         <li><strong>200日定投成本</strong>：假设在过去200天每天定投相同金额购买比特币，计算出的平均成本价格。代表了近期定投者的平均持仓成本。</li>
@@ -353,43 +372,110 @@
     </div>
 
     <script>
-        async function fetchData() {
+        const DATA_SOURCES = [
+            { name: '9992100.xyz API', url: 'https://9992100.xyz/api/ahr999' },
+            { name: '本站缓存（GitHub Actions 同步）', url: './ahr999-data.json' },
+        ];
+
+        let failureCount = 0;
+
+        function toNumber(value) {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function formatUSD(value) {
+            if (value === null || value === undefined) return '--';
+            return "$" + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatPercent(value) {
+            if (value === null || value === undefined) return '--';
+            return Number(value).toFixed(2) + '%';
+        }
+
+        function formatBeijingTime(date) {
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Shanghai'
+            });
+        }
+
+        function mapFearGreedClassification(classification) {
+            const map = {
+                'Extreme Fear': '极度恐惧',
+                'Fear': '恐惧',
+                'Neutral': '中性',
+                'Greed': '贪婪',
+                'Extreme Greed': '极度贪婪',
+            };
+            return map[classification] || classification || '--';
+        }
+
+        function getFearGreedBgColor(classification) {
+            const map = {
+                'Extreme Fear': '#dc3545',
+                'Fear': '#fd7e14',
+                'Neutral': '#6c757d',
+                'Greed': '#28a745',
+                'Extreme Greed': '#198754',
+            };
+            return map[classification] || '#6c757d';
+        }
+
+        async function fetchJson(url, timeoutMs = 8000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
             try {
-                const response = await fetch('https://ahr999.btchao.com/api/ahr999/latest', {
+                const response = await fetch(url, {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json',
                     },
-                    cache: 'no-cache'
+                    cache: 'no-store',
+                    signal: controller.signal,
                 });
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
-                const data = await response.json();
-                
-                if (data && typeof data.ahr999 === 'number') {
-                    displayData(data);
-                } else {
-                    throw new Error('Invalid data format');
+
+                const text = await response.text();
+                const trimmed = text.trim();
+                if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+                    throw new Error('Non-JSON response');
                 }
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                document.getElementById('loading').textContent = '正在连接数据源...';
-                setTimeout(fetchData, 5000);
+
+                return JSON.parse(trimmed);
+            } finally {
+                clearTimeout(timeoutId);
             }
         }
 
-        function displayData(data) {
-            const ahr999 = data.ahr999;
-            
-            document.getElementById('ahr999Value').textContent = ahr999.toFixed(4);
-            document.getElementById('currentPrice').textContent = '$' + data.currentPrice.toLocaleString();
-            document.getElementById('dcaCost').textContent = '$' + data.dcaCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('exponentialValue').textContent = '$' + data.exponentialValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('coinAge').textContent = data.coinAge.toLocaleString();
-            
+        function normalizeData(raw, fetchSourceName) {
+            const ahr999 = toNumber(raw?.ahr999);
+            if (ahr999 === null) throw new Error('Invalid ahr999');
+
+            const updatedAtUnix = toNumber(raw?.updated_at_unix) ?? toNumber(raw?.timestamp) ?? null;
+
+            return {
+                ahr999,
+                price_usd: toNumber(raw?.price_usd ?? raw?.currentPrice),
+                gma200_usd: toNumber(raw?.gma200_usd ?? raw?.dcaCost),
+                index_growth_valuation_usd: toNumber(raw?.index_growth_valuation_usd ?? raw?.exponentialValue),
+                coin_age_days: toNumber(raw?.coin_age_days ?? raw?.coinAge),
+                updated_at_unix: updatedAtUnix,
+                fear_greed: raw?.fear_greed ?? null,
+                btc_dominance_pct: toNumber(raw?.btc_dominance_pct ?? null),
+            };
+        }
+
+        function setStatusByAhr999(ahr999) {
             let status = '';
             let statusColor = '';
             if (ahr999 < 0.45) {
@@ -402,24 +488,79 @@
                 status = '🔴 谨慎区间';
                 statusColor = '#dc3545';
             }
-            
+
             const statusEl = document.getElementById('status');
             statusEl.textContent = status;
             statusEl.style.backgroundColor = statusColor;
-            
-            const updateDate = new Date(data.timestamp || data.date);
-            document.getElementById('updateTime').textContent = 
-                `数据更新时间：${updateDate.toLocaleString('zh-CN', { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit', 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    timeZone: 'Asia/Shanghai'
-                })} (北京时间)`;
-            
+        }
+
+        function displayData(data) {
+            document.getElementById('ahr999Value').textContent = data.ahr999.toFixed(4);
+            document.getElementById('currentPrice').textContent = formatUSD(data.price_usd);
+            document.getElementById('dcaCost').textContent = formatUSD(data.gma200_usd);
+            document.getElementById('exponentialValue').textContent = formatUSD(data.index_growth_valuation_usd);
+            document.getElementById('coinAge').textContent = data.coin_age_days !== null ? data.coin_age_days.toLocaleString() : '--';
+
+            const fearGreedValue = data.fear_greed?.value;
+            const fearGreedClassification = data.fear_greed?.classification;
+            const fearGreedClass = mapFearGreedClassification(fearGreedClassification);
+
+            const fearGreedEl = document.getElementById('fearGreed');
+            if (fearGreedValue !== undefined && fearGreedValue !== null) {
+                fearGreedEl.textContent = `${fearGreedValue}（${fearGreedClass}）`;
+                fearGreedEl.classList.add('fear-greed-badge');
+                fearGreedEl.style.backgroundColor = getFearGreedBgColor(fearGreedClassification);
+            } else {
+                fearGreedEl.textContent = '--';
+                fearGreedEl.classList.remove('fear-greed-badge');
+                fearGreedEl.style.backgroundColor = '';
+            }
+
+            document.getElementById('btcDominance').textContent = formatPercent(data.btc_dominance_pct);
+
+            setStatusByAhr999(data.ahr999);
+
+            const lines = [];
+            if (data.updated_at_unix) {
+                lines.push(`数据更新时间：${formatBeijingTime(new Date(data.updated_at_unix * 1000))} (北京时间)`);
+            }
+            if (data.fear_greed?.timestamp_unix) {
+                lines.push(`恐惧 & 贪婪更新时间：${formatBeijingTime(new Date(data.fear_greed.timestamp_unix * 1000))} (北京时间)`);
+            }
+            document.getElementById('updateTime').innerHTML = lines.length ? lines.join('<br/>') : '--';
+
             document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
             document.getElementById('content').style.display = 'block';
+        }
+
+        async function fetchData() {
+            let lastError = null;
+
+            for (const source of DATA_SOURCES) {
+                try {
+                    const raw = await fetchJson(source.url);
+                    const data = normalizeData(raw, source.name);
+                    displayData(data);
+                    failureCount = 0;
+                    return;
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            failureCount += 1;
+            console.error('Error fetching data:', lastError);
+
+            if (failureCount >= 2) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('content').style.display = 'none';
+            } else {
+                document.getElementById('loading').textContent = '正在连接数据源...';
+            }
+
+            setTimeout(fetchData, 10000);
         }
 
         fetchData();
