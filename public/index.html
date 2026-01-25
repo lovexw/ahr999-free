@@ -217,52 +217,14 @@
             border-top: 1px solid #E0E0E0;
         }
 
-        .chart-section {
-            margin-bottom: 30px;
-        }
-
-        .chart-section h3 {
-            font-size: 1.8em;
-            color: #1A1A1A;
-            margin-bottom: 20px;
-            border-left: 5px solid #FF9900;
-            padding-left: 15px;
-        }
-
-        .chart-container {
-            width: 100%;
-            height: 220px;
-        }
-
-        #seriesChart {
-            width: 100%;
-            height: 220px;
-            display: block;
-        }
-
-        .series-table {
-            margin-top: 20px;
-            overflow-x: auto;
-        }
-
-        .series-table table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95em;
-        }
-
-        .series-table th,
-        .series-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #E0E0E0;
-            text-align: left;
-            white-space: nowrap;
-        }
-
-        .series-table th {
-            background: #FAFAFA;
-            color: #555555;
-            font-weight: 600;
+        .fear-greed-badge {
+            display: inline-block;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 1.05em;
+            line-height: 1.4;
+            color: #ffffff;
         }
 
         .loading {
@@ -292,13 +254,6 @@
                 grid-template-columns: 1fr;
             }
 
-            .chart-container {
-                height: 200px;
-            }
-
-            #seriesChart {
-                height: 200px;
-            }
         }
     </style>
 </head>
@@ -350,23 +305,9 @@
                         <div class="label">BTC 市占率</div>
                         <div class="value" id="btcDominance">--</div>
                     </div>
-                    <div class="data-item">
-                        <div class="label">数据源</div>
-                        <div class="value" id="dataSource">--</div>
-                    </div>
                 </div>
 
                 <div class="update-time" id="updateTime">--</div>
-            </div>
-
-            <div class="card">
-                <div class="chart-section">
-                    <h3>📈 近 7 天 AHR999 走势</h3>
-                    <div class="chart-container">
-                        <canvas id="seriesChart" height="220"></canvas>
-                    </div>
-                    <div id="seriesTable" class="series-table"></div>
-                </div>
             </div>
 
             <div class="card">
@@ -475,6 +416,17 @@
             return map[classification] || classification || '--';
         }
 
+        function getFearGreedBgColor(classification) {
+            const map = {
+                'Extreme Fear': '#dc3545',
+                'Fear': '#fd7e14',
+                'Neutral': '#6c757d',
+                'Greed': '#28a745',
+                'Extreme Greed': '#198754',
+            };
+            return map[classification] || '#6c757d';
+        }
+
         async function fetchJson(url, timeoutMs = 8000) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -518,12 +470,8 @@
                 index_growth_valuation_usd: toNumber(raw?.index_growth_valuation_usd ?? raw?.exponentialValue),
                 coin_age_days: toNumber(raw?.coin_age_days ?? raw?.coinAge),
                 updated_at_unix: updatedAtUnix,
-                series_7d: Array.isArray(raw?.series_7d) ? raw.series_7d : null,
                 fear_greed: raw?.fear_greed ?? null,
                 btc_dominance_pct: toNumber(raw?.btc_dominance_pct ?? null),
-                btc_dominance_source: raw?.btc_dominance_source ?? null,
-                source: raw?.source ?? null,
-                fetch_source: fetchSourceName,
             };
         }
 
@@ -546,119 +494,6 @@
             statusEl.style.backgroundColor = statusColor;
         }
 
-        function renderSeries(series) {
-            const tableEl = document.getElementById('seriesTable');
-            const canvas = document.getElementById('seriesChart');
-            const ctx = canvas.getContext('2d');
-
-            if (!Array.isArray(series) || series.length < 2) {
-                tableEl.textContent = '暂无走势数据';
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                return;
-            }
-
-            const points = series
-                .map(p => ({ t: toNumber(p?.t), ahr999: toNumber(p?.ahr999) }))
-                .filter(p => p.t !== null && p.ahr999 !== null)
-                .sort((a, b) => a.t - b.t);
-
-            if (points.length < 2) {
-                tableEl.textContent = '暂无走势数据';
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                return;
-            }
-
-            const width = canvas.clientWidth || 800;
-            const height = canvas.clientHeight || 220;
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = Math.round(width * dpr);
-            canvas.height = Math.round(height * dpr);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            const values = points.map(p => p.ahr999);
-            const minV = Math.min(...values);
-            const maxV = Math.max(...values);
-            const pad = 24;
-            const range = maxV - minV || 1;
-            const yMin = minV - range * 0.1;
-            const yMax = maxV + range * 0.1;
-
-            const xForIndex = i => pad + (i * (width - pad * 2)) / (points.length - 1);
-            const yForValue = v => pad + ((yMax - v) * (height - pad * 2)) / (yMax - yMin);
-
-            ctx.clearRect(0, 0, width, height);
-
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = '#E0E0E0';
-            ctx.beginPath();
-            ctx.moveTo(pad, height - pad);
-            ctx.lineTo(width - pad, height - pad);
-            ctx.stroke();
-
-            ctx.strokeStyle = '#FF9900';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            points.forEach((p, i) => {
-                const x = xForIndex(i);
-                const y = yForValue(p.ahr999);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.stroke();
-
-            ctx.fillStyle = 'rgba(255, 153, 0, 0.15)';
-            ctx.beginPath();
-            points.forEach((p, i) => {
-                const x = xForIndex(i);
-                const y = yForValue(p.ahr999);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.lineTo(xForIndex(points.length - 1), height - pad);
-            ctx.lineTo(xForIndex(0), height - pad);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = '#FF7700';
-            points.forEach((p, i) => {
-                const x = xForIndex(i);
-                const y = yForValue(p.ahr999);
-                ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            const rows = points
-                .slice(-7)
-                .reverse()
-                .map(p => {
-                    const date = new Date(p.t * 1000);
-                    const dateStr = date.toLocaleString('zh-CN', {
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZone: 'Asia/Shanghai'
-                    });
-                    return `<tr><td>${dateStr}</td><td>${p.ahr999.toFixed(4)}</td></tr>`;
-                })
-                .join('');
-
-            tableEl.innerHTML = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>时间（北京时间）</th>
-                            <th>AHR999</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
-            `;
-        }
-
         function displayData(data) {
             document.getElementById('ahr999Value').textContent = data.ahr999.toFixed(4);
             document.getElementById('currentPrice').textContent = formatUSD(data.price_usd);
@@ -667,23 +502,21 @@
             document.getElementById('coinAge').textContent = data.coin_age_days !== null ? data.coin_age_days.toLocaleString() : '--';
 
             const fearGreedValue = data.fear_greed?.value;
-            const fearGreedClass = mapFearGreedClassification(data.fear_greed?.classification);
-            const fearGreedSource = data.fear_greed?.source;
-            document.getElementById('fearGreed').textContent =
-                fearGreedValue !== undefined && fearGreedValue !== null
-                    ? `${fearGreedValue}（${fearGreedClass}${fearGreedSource ? ` / ${fearGreedSource}` : ''}）`
-                    : '--';
+            const fearGreedClassification = data.fear_greed?.classification;
+            const fearGreedClass = mapFearGreedClassification(fearGreedClassification);
 
-            const btcDominanceText =
-                data.btc_dominance_pct !== null && data.btc_dominance_pct !== undefined
-                    ? `${formatPercent(data.btc_dominance_pct)}${data.btc_dominance_source ? `（${data.btc_dominance_source}）` : ''}`
-                    : '--';
-            document.getElementById('btcDominance').textContent = btcDominanceText;
+            const fearGreedEl = document.getElementById('fearGreed');
+            if (fearGreedValue !== undefined && fearGreedValue !== null) {
+                fearGreedEl.textContent = `${fearGreedValue}（${fearGreedClass}）`;
+                fearGreedEl.classList.add('fear-greed-badge');
+                fearGreedEl.style.backgroundColor = getFearGreedBgColor(fearGreedClassification);
+            } else {
+                fearGreedEl.textContent = '--';
+                fearGreedEl.classList.remove('fear-greed-badge');
+                fearGreedEl.style.backgroundColor = '';
+            }
 
-            const sourceParts = [];
-            if (data.source) sourceParts.push(data.source);
-            if (data.fetch_source) sourceParts.push(data.fetch_source);
-            document.getElementById('dataSource').textContent = sourceParts.join(' / ') || '--';
+            document.getElementById('btcDominance').textContent = formatPercent(data.btc_dominance_pct);
 
             setStatusByAhr999(data.ahr999);
 
@@ -699,8 +532,6 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('error').style.display = 'none';
             document.getElementById('content').style.display = 'block';
-
-            requestAnimationFrame(() => renderSeries(data.series_7d));
         }
 
         async function fetchData() {
